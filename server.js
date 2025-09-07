@@ -3,18 +3,23 @@ require("dotenv").config();
 const express = require("express");
 const path = require("path");
 
+const { connectDB } = require("./database");
+
 const app = express();
 const dist = path.resolve(__dirname, "vite-project/dist");
 
-// 공통 미들웨어
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 (async () => {
   try {
+    const client = await connectDB();
+    const db = client.db(process.env.DB_NAME);
+    app.locals.db = db;
+    console.log("DB 연결 성공");
+
     app.use(express.static(dist));
 
-    // SPA fallback
     app.get(/.*/, (req, res) => {
       res.sendFile(path.join(__dirname, "vite-project/dist/index.html"));
     });
