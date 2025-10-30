@@ -52,6 +52,7 @@ app.use(passport.session());
     app.use(express.static(dist));
 
     app.use("/api/member", require("./routes/member.js"));
+    app.use("/api", require("./routes/defect.js")(db)); // Mount defect router and inject db
 
     app.get(/.*/, (req, res) => {
       res.sendFile(path.join(__dirname, "vite-project/dist/index.html"));

@@ -2,6 +2,7 @@ const router = require("express").Router();
 const passport = require("passport");
 const LocalStrategy = require("passport-local");
 const bcrypt = require("bcrypt");
+const { ObjectId } = require("mongodb");
 
 let { connectDB } = require("../database.js");
 let db;
@@ -96,6 +97,20 @@ router.post("/sign-in", async (req, res, next) => {
         .json({ message: "로그인을 성공했습니다!", user: safeUser });
     });
   })(req, res, next);
+});
+
+// 로그인 상태 확인 API
+router.get("/check-auth", (req, res) => {
+  if (req.isAuthenticated()) {
+    const safeUser = {
+      id: req.user._id,
+      username: req.user.username,
+      email: req.user.email,
+    };
+    res.status(200).json({ isAuthenticated: true, user: safeUser });
+  } else {
+    res.status(200).json({ isAuthenticated: false });
+  }
 });
 
 module.exports = router;
