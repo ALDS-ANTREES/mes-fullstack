@@ -40,7 +40,10 @@ const App = () => {
           path="/"
           element={isAuthenticated ? <Home /> : <Navigate to="/sign-in" />}
         />
-        <Route path="/sign-in" element={<SignIn />} />
+        <Route
+          path="/sign-in"
+          element={<SignIn onSignInSuccess={() => setIsAuthenticated(true)} />}
+        />
         <Route path="/sign-up" element={<SignUp />} />
       </Routes>
     </Router>

@@ -18,12 +18,15 @@ import getDefectsApi from "../apis/defect/getDefectsApi";
 import getDefectStatsApi from "../apis/defect/getDefectStatsApi";
 import startSendingDefectData from "../apis/defect/sendDefectData";
 import clearDefectsApi from "../apis/defect/clearDefectsApi";
+import axios from "axios";
 
 const COLORS = ["#6c7cf6", "#f17676"];
 
 const Home = () => {
   const [defects, setDefects] = useState([]);
   const [stats, setStats] = useState({ totalCount: 0, normalCount: 0 });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
   const totalTarget = 1000;
 
   const fetchData = async () => {
@@ -38,7 +41,7 @@ const Home = () => {
   };
 
   useEffect(() => {
-    startSendingDefectData();
+    // startSendingDefectData();
     fetchData();
     const interval = setInterval(fetchData, 3000);
 
@@ -60,6 +63,11 @@ const Home = () => {
         alert("데이터 초기화에 실패했습니다.");
       }
     }
+  };
+
+  const handleItemClick = (image) => {
+    setSelectedImage(image);
+    setIsModalOpen(true);
   };
 
   const totalInspected = defects.length;
@@ -128,6 +136,29 @@ const Home = () => {
       불량률: parseFloat(rate.toFixed(1)),
     };
   }).reverse(); // Reverse to show oldest on the left, newest on the right
+
+  const requestStart = async () => {
+    const piApiUrl = `http://${import.meta.env.VITE_PI_IP}:5001/start`;
+
+    try {
+      console.log(`라즈베리파이(${piApiUrl})에 작업 시 신호를 보냅니다.`);
+
+      // axios를 사용해 라즈베리파이의 /start 엔드포인트로 POST 요청을 보냅니다.
+      const response = await axios.post(piApiUrl);
+
+      // 라즈베리파이 서버는 요청을 받으면 즉시 '작업이 시작되었다'는 응답을 보냅니다.
+      res.status(200).json({
+        message: `라즈베리파이에 작업 시작 신호를 성공적으로 보냈습니다.`,
+        piResponse: response.data, // 라즈베리파이가 보낸 응답 내용
+      });
+    } catch (error) {
+      console.error(`라즈베리파이 호출 중 에러 발생: ${error.message}`);
+      res.status(500).json({
+        message: "라즈베리파이의 감지 프로세스를 시작하는 데 실패했습니다.",
+        error: error.message,
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 p-4 text-white">
@@ -253,28 +284,50 @@ const Home = () => {
           <h3 className="text-2xl font-bold mb-4">실시간 검사 현황</h3>
           <div className="overflow-y-auto h-[350px] pr-2">
             <div className="flex flex-col gap-2">
-              {defects
-                .slice()
-                .map((item) => (
-                  <div
-                    key={item._id}
-                    className={`flex justify-between p-3 rounded-lg ${
-                      item.defective ? "bg-red-500/50" : "bg-green-500/50"
-                    }`}
-                  >
-                    <span>{item.device_id}</span>
-                    <span className="font-bold">
-                      {item.defective ? "불량" : "정상"}
-                    </span>
-                  </div>
-                ))}
+              {defects.slice().map((item) => (
+                <div
+                  key={item._id}
+                  className={`flex justify-between p-3 rounded-lg cursor-pointer ${
+                    item.defective ? "bg-red-500/50" : "bg-green-500/50"
+                  }`}
+                  onClick={() => handleItemClick(item.image)}
+                >
+                  <span>{item.device_id}</span>
+                  <span className="font-bold">
+                    {item.defective ? "불량" : "정상"}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
+
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div
+            className="relative bg-gray-800 p-4 rounded-lg max-w-3xl max-h-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={selectedImage}
+              alt="Defect"
+              className="max-w-full max-h-[80vh] rounded-lg"
+            />
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-full"
+            >
+              X
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default Home;
-

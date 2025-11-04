@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "aws-sdk": "^2.1692.0",
     "bcrypt": "^6.0.0",
     "connect-mongo": "^5.1.0",
     "cors": "^2.8.5",
@@ -7,6 +8,8 @@
     "express": "^5.1.0",
     "express-session": "^1.18.2",
     "mongodb": "^6.19.0",
+    "multer": "^2.0.2",
+    "multer-s3": "^3.0.1",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0"
   }

@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import signInApi from "../apis/member/signInApi";
 import { Link, useNavigate } from "react-router-dom";
 
-const SignIn = () => {
+const SignIn = ({ onSignInSuccess }) => {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ const SignIn = () => {
     try {
       setLoading(true);
       const res = await signInApi(data);
-      alert(res.message);
+      onSignInSuccess();
       navigate("/");
     } catch (err) {
       console.error("로그인 실패:", err);

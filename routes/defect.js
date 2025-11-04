@@ -1,10 +1,33 @@
 const router = require("express").Router();
+const { S3Client } = require("@aws-sdk/client-s3");
+const multer = require("multer");
+const multerS3 = require("multer-s3");
+const { ObjectId } = require("mongodb");
+
+const s3 = new S3Client({
+  region: "ap-northeast-2",
+  credentials: {
+    accessKeyId: process.env.S3_ACCESS_KEY,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+  },
+});
+
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: process.env.S3_BUCKET_NAME,
+    key: function (req, file, cb) {
+      cb(null, Date.now().toString() + "-" + file.originalname);
+    },
+  }),
+});
 
 let db; // This will be set by server.js
 
 // Endpoint to receive device data and determine defect status
-router.post("/defects", async (req, res) => {
+router.post("/defects", upload.single("image"), async (req, res) => {
   const { device_id, value } = req.body;
+  const image = req.file.location;
   const defective = value > 100; // Defect criteria
 
   try {
@@ -15,6 +38,7 @@ router.post("/defects", async (req, res) => {
       device_id,
       value,
       defective,
+      image,
       timestamp: new Date(),
     });
 
