@@ -141,22 +141,20 @@ const Home = () => {
     const piApiUrl = `http://${import.meta.env.VITE_PI_IP}:5001/start`;
 
     try {
-      console.log(`라즈베리파이(${piApiUrl})에 작업 시 신호를 보냅니다.`);
+      console.log(`라즈베리파이(${piApiUrl})에 작업 시작 신호를 보냅니다.`);
 
-      // axios를 사용해 라즈베리파이의 /start 엔드포인트로 POST 요청을 보냅니다.
       const response = await axios.post(piApiUrl);
 
-      // 라즈베리파이 서버는 요청을 받으면 즉시 '작업이 시작되었다'는 응답을 보냅니다.
-      res.status(200).json({
-        message: `라즈베리파이에 작업 시작 신호를 성공적으로 보냈습니다.`,
-        piResponse: response.data, // 라즈베리파이가 보낸 응답 내용
-      });
+      if (response.status === 200) {
+        alert(
+          `라즈베리파이에 작업 시작 신호를 성공적으로 보냈습니다: ${response.data.message}`
+        );
+      } else {
+        alert(`라즈베리파이 작업 시작 실패: ${response.data.message}`);
+      }
     } catch (error) {
-      console.error(`라즈베리파이 호출 중 에러 발생: ${error.message}`);
-      res.status(500).json({
-        message: "라즈베리파이의 감지 프로세스를 시작하는 데 실패했습니다.",
-        error: error.message,
-      });
+      console.error(`라즈베리파이 호출 중 에러 발생:`, error);
+      alert("라즈베리파이의 감지 프로세스를 시작하는 데 실패했습니다.");
     }
   };
 
@@ -164,12 +162,20 @@ const Home = () => {
     <div className="min-h-screen bg-gray-900 p-4 text-white">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-4xl font-bold">생산 현황 대시보드</h1>
-        <button
-          onClick={handleClearData}
-          className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
-        >
-          데이터 초기화
-        </button>
+        <div>
+          <button
+            onClick={handleClearData}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+          >
+            데이터 초기화
+          </button>
+          <button
+            onClick={requestStart}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors ml-2"
+          >
+            작업 시작
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
