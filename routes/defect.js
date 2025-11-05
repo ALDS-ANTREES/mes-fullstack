@@ -20,6 +20,7 @@ const upload = multer({
       cb(null, Date.now().toString() + "-" + file.originalname);
     },
   }),
+  limits: { fileSize: 50 * 1024 * 1024 },
 });
 
 let db; // This will be set by server.js
