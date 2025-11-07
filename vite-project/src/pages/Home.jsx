@@ -68,9 +68,7 @@ const Home = () => {
       alert("서버에서 불량품 판독을 시작합니다.");
       const response = await startDetectionApi();
       console.log(response.message);
-    } catch (error) {
-      alert("판독 프로세스 시작에 실패했습니다.");
-    }
+    } catch (error) {}
   };
 
   const handleItemClick = (image) => {
