@@ -1,8 +1,8 @@
 const router = require("express").Router();
-const { S3Client } = require("@aws-sdk/client-s3");
-const multer = require("multer");
-const multerS3 = require("multer-s3");
-const { ObjectId } = require("mongodb");
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const { spawn } = require("child_process");
+const fs = require("fs");
+const path = require("path");
 
 const s3 = new S3Client({
   region: "ap-northeast-2",
@@ -12,45 +12,78 @@ const s3 = new S3Client({
   },
 });
 
-const upload = multer({
-  storage: multerS3({
-    s3: s3,
-    bucket: process.env.S3_BUCKET_NAME,
-    key: function (req, file, cb) {
-      cb(null, Date.now().toString() + "-" + file.originalname);
-    },
-  }),
-  limits: { fileSize: 50 * 1024 * 1024 },
-});
-
 let db; // This will be set by server.js
 
-// Endpoint to receive device data and determine defect status
-router.post("/defects", upload.single("image"), async (req, res) => {
-  const { device_id, value } = req.body;
-  const image = req.file.location;
-  const defective = value > 100; // Defect criteria
+// Endpoint to trigger the Python defect detection script
+router.post("/start-detection", async (req, res) => {
+  console.log("Received request to start detection...");
 
-  try {
-    if (!db) {
-      return res.status(500).json({ message: "Database not connected" });
-    }
-    await db.collection("defects").insertOne({
-      device_id,
-      value,
-      defective,
-      image,
-      timestamp: new Date(),
-    });
+  const detectorPath = path.resolve(__dirname, "../fusebox-detector");
+  const pythonExecutable = path.join(detectorPath, "venv/bin/python");
+  const pythonScript = path.join(detectorPath, "fusebox_detector.py");
 
-    res.status(200).json({
-      message: "데이터 측정이 완료되었습니다.",
-      defective,
+  const pythonProcess = spawn(pythonExecutable, [pythonScript], { cwd: detectorPath });
+
+  pythonProcess.stdout.on("data", async (data) => {
+    const output = data.toString();
+    // Process each JSON object from the output stream
+    output.split("\n").forEach(async (line) => {
+      if (line) {
+        try {
+          const result = JSON.parse(line);
+          console.log("Python script output:", result);
+
+          if (result.error) {
+            console.error("Python script error:", result.error);
+            return;
+          }
+
+          let imageUrl = "";
+          // If defective, upload the image to S3
+          if (result.image_path) {
+            const imagePath = path.resolve(detectorPath, result.image_path);
+            if (fs.existsSync(imagePath)) {
+              const fileStream = fs.createReadStream(imagePath);
+              const uploadParams = {
+                Bucket: process.env.S3_BUCKET_NAME,
+                Key: `defects/${Date.now()}_${path.basename(imagePath)}`,
+                Body: fileStream,
+              };
+              const command = new PutObjectCommand(uploadParams);
+              await s3.send(command);
+              imageUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${uploadParams.Key}`;
+            }
+          }
+
+          // Save to database
+          if (db) {
+            await db.collection("defects").insertOne({
+              device_id: result.device_id,
+              value: result.value,
+              defective: result.defective,
+              image: imageUrl,
+              details: result.details,
+              timestamp: new Date(),
+            });
+            console.log("Saved defect data to DB");
+          }
+        } catch (e) {
+          // This will catch non-JSON lines like "처리 시작..."
+          console.log("Non-JSON output from script:", line);
+        }
+      }
     });
-  } catch (err) {
-    console.error("Error processing defect data:", err);
-    res.status(500).json({ message: "Server Error" });
-  }
+  });
+
+  pythonProcess.stderr.on("data", (data) => {
+    console.error(`Python script stderr: ${data}`);
+  });
+
+  pythonProcess.on("close", (code) => {
+    console.log(`Python script exited with code ${code}`);
+  });
+
+  res.status(202).json({ message: "Detection process started." });
 });
 
 // Endpoint to get the latest defect inspection data

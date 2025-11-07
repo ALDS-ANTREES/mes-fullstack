@@ -16,9 +16,8 @@ import {
 } from "recharts";
 import getDefectsApi from "../apis/defect/getDefectsApi";
 import getDefectStatsApi from "../apis/defect/getDefectStatsApi";
-import startSendingDefectData from "../apis/defect/sendDefectData";
 import clearDefectsApi from "../apis/defect/clearDefectsApi";
-import axios from "axios";
+import startDetectionApi from "../apis/defect/startDetectionApi"; // Import the new API
 
 const COLORS = ["#6c7cf6", "#f17676"];
 
@@ -41,7 +40,6 @@ const Home = () => {
   };
 
   useEffect(() => {
-    // startSendingDefectData();
     fetchData();
     const interval = setInterval(fetchData, 3000);
 
@@ -65,6 +63,16 @@ const Home = () => {
     }
   };
 
+  const handleStartDetection = async () => {
+    try {
+      alert("서버에서 불량품 판독을 시작합니다.");
+      const response = await startDetectionApi();
+      console.log(response.message);
+    } catch (error) {
+      alert("판독 프로세스 시작에 실패했습니다.");
+    }
+  };
+
   const handleItemClick = (image) => {
     setSelectedImage(image);
     setIsModalOpen(true);
@@ -83,20 +91,18 @@ const Home = () => {
 
   const currentMonth = new Date().getMonth(); // 0-11
 
-  // Memoize the data for the past 5 months so it doesn't change on re-render
   const pastMonthsData = useMemo(() => {
     return Array.from({ length: 5 }, (_, i) => {
       const monthIndex = (currentMonth - 5 + i + 12) % 12;
       const monthName = `${monthIndex + 1}월`;
-      const rate = Math.random() * 10 + 15; // Random rate between 15 and 25
+      const rate = Math.random() * 10 + 15;
       return {
         name: monthName,
         불량률: parseFloat(rate.toFixed(1)),
       };
     });
-  }, []); // Empty dependency array means this runs only once
+  }, []);
 
-  // Calculate current month's data on every render
   const currentRate =
     totalInspected > 0 ? (defectiveCount / totalInspected) * 100 : 0;
   const currentMonthData = {
@@ -104,12 +110,10 @@ const Home = () => {
     불량률: parseFloat(currentRate.toFixed(1)),
   };
 
-  // Combine the stable past data with the dynamic current month data
   const monthlyDefectData = [...pastMonthsData, currentMonthData];
 
-  // New logic for "최근 불량률 추이" (Recent Defect Rate Trend)
-  const trendDataPoints = 6; // Show 6 data points (60 seconds)
-  const intervalSeconds = 10; // Each point represents 10 seconds
+  const trendDataPoints = 6;
+  const intervalSeconds = 10;
   const now = new Date();
 
   const recentTrendData = Array.from({ length: trendDataPoints }, (_, i) => {
@@ -119,7 +123,6 @@ const Home = () => {
     const end = new Date(now.getTime() - secondsAgoEnd * 1000);
     const start = new Date(now.getTime() - secondsAgoStart * 1000);
 
-    // Filter defects that fall into this time bucket
     const bucketDefects = defects.filter((d) => {
       const timestamp = new Date(d.timestamp);
       return timestamp >= start && timestamp < end;
@@ -135,28 +138,7 @@ const Home = () => {
       name: `-${secondsAgoStart}s`,
       불량률: parseFloat(rate.toFixed(1)),
     };
-  }).reverse(); // Reverse to show oldest on the left, newest on the right
-
-  const requestStart = async () => {
-    const piApiUrl = `http://${import.meta.env.VITE_PI_IP}:5001/start`;
-
-    try {
-      console.log(`라즈베리파이(${piApiUrl})에 작업 시작 신호를 보냅니다.`);
-
-      const response = await axios.post(piApiUrl);
-
-      if (response.status === 200) {
-        alert(
-          `라즈베리파이에 작업 시작 신호를 성공적으로 보냈습니다: ${response.data.message}`
-        );
-      } else {
-        alert(`라즈베리파이 작업 시작 실패: ${response.data.message}`);
-      }
-    } catch (error) {
-      console.error(`라즈베리파이 호출 중 에러 발생:`, error);
-      alert("라즈베리파이의 감지 프로세스를 시작하는 데 실패했습니다.");
-    }
-  };
+  }).reverse();
 
   return (
     <div className="min-h-screen bg-gray-900 p-4 text-white">
@@ -170,7 +152,7 @@ const Home = () => {
             데이터 초기화
           </button>
           <button
-            onClick={requestStart}
+            onClick={handleStartDetection} // Updated onClick handler
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors ml-2"
           >
             작업 시작
@@ -311,7 +293,7 @@ const Home = () => {
 
       {isModalOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50"
+          className="fixed inset-0 bg-black flex justify-center items-center z-50"
           onClick={() => setIsModalOpen(false)}
         >
           <div
