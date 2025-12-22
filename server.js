@@ -15,7 +15,7 @@ const dist = path.resolve(__dirname, "vite-project/dist");
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: process.env.CORS_ORIGIN || "http://localhost:5173",
     credentials: true,
   })
 );

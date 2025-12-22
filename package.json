@@ -1,4 +1,12 @@
 {
+  "name": "mes-fullstack",
+  "version": "1.0.0",
+  "description": "MES 웹 및 서버",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
   "dependencies": {
     "aws-sdk": "^2.1692.0",
     "axios": "^1.7.2",
