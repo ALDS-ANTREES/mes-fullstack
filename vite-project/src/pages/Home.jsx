@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   PieChart,
   Pie,
@@ -26,6 +26,9 @@ const Home = () => {
   const [stats, setStats] = useState({ totalCount: 0, normalCount: 0 });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [videoStream, setVideoStream] = useState(null);
+  const [cameraError, setCameraError] = useState(null);
+  const videoRef = useRef(null);
   const totalTarget = 1000;
 
   const fetchData = async () => {
@@ -44,6 +47,45 @@ const Home = () => {
     const interval = setInterval(fetchData, 3000);
 
     return () => clearInterval(interval);
+  }, []);
+
+  // 웹캠 스트림 초기화
+  useEffect(() => {
+    const startCamera = async () => {
+      try {
+        setCameraError(null);
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: "environment", // 후면 카메라 우선
+          },
+        });
+
+        setVideoStream(stream);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        console.error("웹캠 접근 오류:", error);
+        setCameraError(
+          error.name === "NotAllowedError"
+            ? "웹캠 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요."
+            : error.name === "NotFoundError"
+            ? "웹캠을 찾을 수 없습니다. 웹캠이 연결되어 있는지 확인해주세요."
+            : "웹캠에 접근할 수 없습니다."
+        );
+      }
+    };
+
+    startCamera();
+
+    // 컴포넌트 언마운트 시 스트림 정리
+    return () => {
+      if (videoStream) {
+        videoStream.getTracks().forEach((track) => track.stop());
+      }
+    };
   }, []);
 
   const handleClearData = async () => {
@@ -171,7 +213,7 @@ const Home = () => {
         </div>
 
         {/* 생산 라인 불량 비율 */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 shadow-2xl col-span-1 lg:col-span-2">
+        <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 shadow-2xl col-span-1 lg:col-span-1">
           <h3 className="text-2xl font-bold mb-4">최근 검사 불량 비율</h3>
           <ResponsiveContainer width="100%" height={350}>
             <PieChart>
@@ -210,6 +252,71 @@ const Home = () => {
               />
             </PieChart>
           </ResponsiveContainer>
+        </div>
+
+        {/* 실시간 검사 화면 (웹캠) */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 shadow-2xl col-span-1 lg:col-span-1">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-2xl font-bold">실시간 검사 화면</h3>
+            {videoStream && (
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-green-400">LIVE</span>
+              </div>
+            )}
+          </div>
+          <div className="relative h-[350px] rounded-lg overflow-hidden bg-black">
+            {cameraError ? (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                <div className="text-center">
+                  <div className="text-4xl mb-2">📷</div>
+                  <div className="text-sm mb-2">{cameraError}</div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        setCameraError(null);
+                        const stream = await navigator.mediaDevices.getUserMedia({
+                          video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: "environment",
+                          },
+                        });
+                        setVideoStream(stream);
+                        if (videoRef.current) {
+                          videoRef.current.srcObject = stream;
+                        }
+                      } catch (error) {
+                        setCameraError("웹캠에 접근할 수 없습니다.");
+                      }
+                    }}
+                    className="mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+              />
+            )}
+            {/* 오버레이 정보 */}
+            {videoStream && !cameraError && (
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                <div className="text-white text-sm font-semibold">
+                  실시간 검사 중
+                </div>
+                <div className="text-white/80 text-xs">
+                  {new Date().toLocaleTimeString("ko-KR")}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
