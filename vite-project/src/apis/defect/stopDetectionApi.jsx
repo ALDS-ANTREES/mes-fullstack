@@ -1,11 +1,11 @@
 import axios from "axios";
 
-const startDetectionApi = async () => {
+const stopDetectionApi = async () => {
   try {
     const baseUrl = import.meta.env.VITE_RASPBERRY_PI_API_URL || 
       "https://historically-conditional-kelley.ngrok-free.dev";
     const response = await axios.post(
-      `${baseUrl}/start`,
+      `${baseUrl}/stop`,
       {},
       {
         headers: {
@@ -15,9 +15,10 @@ const startDetectionApi = async () => {
     );
     return response.data;
   } catch (error) {
-    console.error("Error starting detection:", error);
+    console.error("Error stopping detection:", error);
     throw error;
   }
 };
 
-export default startDetectionApi;
+export default stopDetectionApi;
+

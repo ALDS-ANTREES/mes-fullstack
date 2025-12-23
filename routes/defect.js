@@ -68,69 +68,13 @@ router.post("/start-detection", async (req, res) => {
             continue;
           }
 
-          let imageUrl = "";
-          
-          // 불량인 경우 이미지 업로드
-          if (result.defective && result.image_path) {
-            try {
-              // 원본 이미지 경로
-              const originalImagePath = path.resolve(detectorPath, result.image_path);
-              
-              // 주석 이미지 경로 (불량인 경우 result 폴더에 저장됨)
-              const baseName = path.basename(result.image_path, '.jpg');
-              const annotatedImagePath = path.resolve(detectorPath, `result/diff_bbox_${baseName}.png`);
-              
-              // 주석 이미지가 있으면 그것을, 없으면 원본을 업로드
-              const imageToUpload = fs.existsSync(annotatedImagePath) 
-                ? annotatedImagePath 
-                : originalImagePath;
-              
-              if (fs.existsSync(imageToUpload)) {
-                const uploadKey = `defects/${Date.now()}_${path.basename(imageToUpload)}`;
-                try {
-                  const fileStream = fs.createReadStream(imageToUpload);
-                  const uploadParams = {
-                    Bucket: process.env.S3_BUCKET_NAME,
-                    Key: uploadKey,
-                    Body: fileStream,
-                    ContentType: imageToUpload.endsWith('.png') ? 'image/png' : 'image/jpeg',
-                  };
-                  const command = new PutObjectCommand(uploadParams);
-                  await s3.send(command);
-                  imageUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || 'ap-northeast-2'}.amazonaws.com/${uploadKey}`;
-                  console.log("Image uploaded to S3 successfully:", imageUrl);
-                } catch (uploadError) {
-                  console.error("S3 upload failed:", uploadError.message);
-                  console.error("Upload error details:", {
-                    bucket: process.env.S3_BUCKET_NAME,
-                    key: uploadKey,
-                    error: uploadError.name,
-                    code: uploadError.$metadata?.httpStatusCode,
-                    message: uploadError.message,
-                  });
-                }
-              } else {
-                console.error("Image file not found:", imageToUpload);
-                console.error("Tried paths:", {
-                  original: originalImagePath,
-                  annotated: annotatedImagePath,
-                  originalExists: fs.existsSync(originalImagePath),
-                  annotatedExists: fs.existsSync(annotatedImagePath),
-                });
-              }
-            } catch (imageError) {
-              console.error("Error processing image upload:", imageError.message);
-            }
-          }
-
-          // Save to database
+          // Save to database (이미지 없이)
           if (db) {
             try {
               await db.collection("defects").insertOne({
                 device_id: result.device_id,
                 value: result.value,
                 defective: result.defective,
-                image: imageUrl,
                 details: result.details,
                 timestamp: new Date(),
               });
@@ -222,6 +166,48 @@ router.get("/defects/stats", async (req, res) => {
   } catch (err) {
     console.error("Error fetching defect stats:", err);
     res.status(500).json({ message: "Server Error" });
+  }
+});
+
+// Endpoint to receive defect data from Raspberry Pi
+router.post("/defects", async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(500).json({ message: "Database not connected" });
+    }
+
+    const { device_id, value, defective, image, details } = req.body;
+
+    // 필수 필드 검증
+    if (!device_id || defective === undefined) {
+      return res.status(400).json({ 
+        message: "Missing required fields: device_id and defective are required" 
+      });
+    }
+
+    // 데이터베이스에 저장 (이미지 없이)
+    const defectData = {
+      device_id,
+      value: value || null,
+      defective: Boolean(defective),
+      details: details || null,
+      timestamp: new Date(),
+    };
+
+    await db.collection("defects").insertOne(defectData);
+    console.log("Defect data saved to DB:", device_id, "Defective:", defective);
+
+    res.status(200).json({ 
+      message: "Defect data saved successfully",
+      device_id,
+      defective 
+    });
+  } catch (err) {
+    console.error("Error saving defect data:", err);
+    res.status(500).json({ 
+      message: "Server Error",
+      error: err.message 
+    });
   }
 });
 
