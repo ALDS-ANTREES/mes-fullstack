@@ -55,9 +55,67 @@ app.use(passport.session());
     app.use("/api/member", require("./routes/member.js"));
     app.use("/api", require("./routes/defect.js")(db)); // Mount defect router and inject db
 
+    // 라즈베리파이 API 프록시 (CORS 문제 해결)
+    const raspberryApiBaseUrl = process.env.RASPBERRY_PI_API_URL || 
+      "https://unbetraying-thermosensitive-eve.ngrok-free.dev";
+    
+    // 시작 명령 프록시
+    app.post("/api/raspberry/start", async (req, res) => {
+      try {
+        console.log("라즈베리파이 시작 명령 프록시 요청");
+        const response = await axios.post(
+          `${raspberryApiBaseUrl}/start`,
+          {},
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "ngrok-skip-browser-warning": "true"
+            },
+            timeout: 10000
+          }
+        );
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.json(response.data);
+      } catch (error) {
+        console.error("라즈베리파이 시작 명령 실패:", error.message);
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.status(error.response?.status || 500).json({
+          error: "라즈베리파이 서버 요청 실패",
+          message: error.message
+        });
+      }
+    });
+
+    // 종료 명령 프록시
+    app.post("/api/raspberry/stop", async (req, res) => {
+      try {
+        console.log("라즈베리파이 종료 명령 프록시 요청");
+        const response = await axios.post(
+          `${raspberryApiBaseUrl}/stop`,
+          {},
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "ngrok-skip-browser-warning": "true"
+            },
+            timeout: 10000
+          }
+        );
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.json(response.data);
+      } catch (error) {
+        console.error("라즈베리파이 종료 명령 실패:", error.message);
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.status(error.response?.status || 500).json({
+          error: "라즈베리파이 서버 요청 실패",
+          message: error.message
+        });
+      }
+    });
+
     // 라즈베리파이 스트림 프록시 (CORS 문제 해결)
     const raspberryStreamBaseUrl = process.env.RASPBERRY_PI_STREAM_URL || 
-      "https://historically-conditional-kelley.ngrok-free.dev";
+      "https://unbetraying-thermosensitive-eve.ngrok-free.dev";
     const raspberryStreamUrl = `${raspberryStreamBaseUrl}/video_feed`;
     
     // 스트림 프록시 라우트를 /api보다 먼저 정의 (라우팅 순서 중요!)

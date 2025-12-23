@@ -1,18 +1,9 @@
-import axios from "axios";
+import api from "../api";
 
 const startDetectionApi = async () => {
   try {
-    const baseUrl = import.meta.env.VITE_RASPBERRY_PI_API_URL || 
-      "https://historically-conditional-kelley.ngrok-free.dev";
-    const response = await axios.post(
-      `${baseUrl}/start`,
-      {},
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    // 백엔드 서버를 통해 프록시 요청 (CORS 문제 해결)
+    const response = await api.post("raspberry/start");
     return response.data;
   } catch (error) {
     console.error("Error starting detection:", error);
